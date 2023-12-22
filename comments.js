@@ -1,70 +1,63 @@
 // Create web Server
-const express = require('express');
-const router = express.Router();
-const mongoose = require('mongoose');
-const passport = require('passport');
 
-// Model
-const Post = require('../../models/Post');
-const Profile = require('../../models/Profile');
+var http = require("http");
+var url = require("url");
+var fs = require("fs");
+var qs = require("querystring");
 
-// Validation
-const validatePostInput = require('../../validation/post');
-
-// @route: GET api/posts/test
-// @desc: Tests posts route
-// @access: Public
-router.get('/test', (req, res) => res.json({ msg: 'Posts Works' }));
-
-// @route: GET api/posts
-// @desc: Get posts
-// @access: Public
-router.get('/', (req, res) => {
-    Post.find()
-        .sort({ date: -1 }) // Sort posts by date (descending order)
-        .then(posts => res.json(posts))
-        .catch(err => res.status(404).json({ nopostsfound: 'No posts found.' }));
-});
-
-// @route: GET api/posts/:id
-// @desc: Get posts by ID
-// @access: Public
-router.get('/:id', (req, res) => {
-    Post.findById(req.params.id)
-        .then(post => res.json(post))
-        .catch(err => res.status(404).json({ nopostfound: 'Post not found.' }));
-});
-
-// @route: POST api/posts
-// @desc: Create post
-// @access: Private
-router.post('/', passport.authenticate('jwt', { session: false }), (req, res) => {
-    // Validate input
-    const { errors, isValid } = validatePostInput(req.body);
-
-    // Check validation
-    if (!isValid) {
-        // Return any errors with 400 status
-        return res.status(400).json(errors);
+// 1. Create Server
+var server = http.createServer(function(request, response) {
+    var urlObj = url.parse(request.url, true);
+    var pathname = urlObj.pathname;
+    if (pathname == "/") {
+        // 2. Read file
+        var fileContent = fs.readFileSync("comment.html");
+        response.writeHead(200, { "Content-Type": "text/html" });
+        response.end(fileContent);
+    } else if (pathname == "/post") {
+        var str = "";
+        request.on("data", function(chunk) {
+            str += chunk;
+        });
+        request.on("end", function() {
+            var obj = qs.parse(str);
+            console.log(obj);
+            var date = new Date();
+            obj.time = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+            var comment = JSON.stringify(obj);
+            fs.readFile("comment.json", function(err, data) {
+                if (err) {
+                    console.log(err);
+                } else {
+                    var commentArr = JSON.parse(data);
+                    commentArr.unshift(obj);
+                    var commentStr = JSON.stringify(commentArr);
+                    fs.writeFile("comment.json", commentStr, function(err) {
+                        if (err) {
+                            console.log(err);
+                        } else {
+                            response.writeHead(200, { "Content-Type": "text/plain" });
+                            response.end(commentStr);
+                        }
+                    });
+                }
+            });
+        });
+    } else if (pathname == "/get") {
+        fs.readFile("comment.json", function(err, data) {
+            if (err) {
+                console.log(err);
+            } else {
+                response.writeHead(200, { "Content-Type": "text/plain" });
+                response.end(data);
+            }
+        });
+    } else {
+        var fileContent = fs.readFileSync("comment.html");
+        response.writeHead(404, { "Content-Type": "text/html" });
+        response.end(fileContent);
     }
-
-    // Create new post object
-    const newPost = new Post({
-        text: req.body.text,
-        name: req.body.name,
-        avatar: req.body.avatar,
-        // Get user ID from JWT
-        user: req.user.id
-    });
-
-    // Save post to database
-    newPost.save().then(post => res.json(post));
 });
 
-// @route: DELETE api/posts/:id
-// @desc: Delete post
-// @access: Private
-router.delete('/:id', passport.authenticate('jwt', { session: false }), (req, res) => {
-    // Find user profile
-    Profile.findOne({ user: req.user.id })
-        .then(profile =>
+// 3. Listen port
+server.listen(8080, "localhost");
