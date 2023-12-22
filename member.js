@@ -1,7 +1,12 @@
-function SkillsMember() {
-    return (
-        <div>
-            <h1>Skills Member</h1>
-        </div>
-    );
+function skillsMember(){
+    return{
+        restrict: 'E',
+        templateUrl: 'views/member.html',
+        controller: 'SkillsMemberCtrl',
+        controllerAs: 'skillsMemberCtrl',
+        bindToController: true,
+        scope: {
+            member: '='
+        }
+    };
 }
